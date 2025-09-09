@@ -14,7 +14,7 @@
 ---
 
 ## Project Structure
-
+```
 vision_aid/
 ├── init.py
 ├── audio.py # TTS & audio queue
@@ -31,7 +31,7 @@ vision_aid/
 ├── storage.py # JSON storage for faces
 ├── threads.py # Stoppable thread manager
 └── utils.py # Helpers (resize, throttles, bbox scale)
-
+```
 ---
 
 ## Installation
@@ -141,6 +141,7 @@ Obstacle proximity → vibration urgency:
 - gps_email.get_gps_location() is stubbed — replace with your GPS module integration.
 - If available, sends periodic email with current location using .env credentials.
 - All email credentials are read securely from .env, never exposed on CLI.
+
 
 
 
