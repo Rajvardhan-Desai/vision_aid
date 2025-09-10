@@ -186,10 +186,14 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, s
         # Draw preview
         if not args.headless:
             for d0 in dets:
-                x1,y1,x2,y2 = d0["bbox_xyxy"]
+                bbox = d0.get("bbox_xyxy", [])
+                if len(bbox) != 4:
+                    log.warning("Invalid bbox for drawing: %s", bbox)
+                    continue
+                x1, y1, x2, y2 = map(int, bbox)
                 if infer_wh:
                     x1 = int(x1 / fx); y1 = int(y1 / fy); x2 = int(x2 / fx); y2 = int(y2 / fy)
-                cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
                 cv2.putText(frame, f"{d0['class_name']} {d0['conf']:.2f}", (x1, max(0,y1-6)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
             cv2.imshow("VisionAid", frame)

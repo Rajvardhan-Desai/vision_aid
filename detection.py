@@ -15,14 +15,21 @@ class Detector:
         out: List[Dict[str, Any]] = []
         for i in range(len(boxes)):
             conf = float(boxes[i].conf.item())
-            if conf < conf_thres: 
+            if conf < conf_thres:
                 continue
             cls = int(boxes[i].cls.item())
-            xyxy = boxes[i].xyxy.cpu().numpy().squeeze().tolist()
-            out.append({"class_id": cls,
-                        "class_name": names.get(cls, f"class_{cls}"),
-                        "conf": conf,
-                        "bbox_xyxy": xyxy})
+            # Ensure bbox is returned as a flat list [x1, y1, x2, y2]
+            xyxy = boxes[i].xyxy.cpu().numpy().reshape(-1).tolist()
+            if len(xyxy) != 4:
+                log.warning("Unexpected bbox shape: %s", xyxy)
+                continue
+            xyxy = [float(v) for v in xyxy]
+            out.append({
+                "class_id": cls,
+                "class_name": names.get(cls, f"class_{cls}"),
+                "conf": conf,
+                "bbox_xyxy": xyxy,
+            })
         return out
 
 def _iou(a, b) -> float:
