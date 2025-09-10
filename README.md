@@ -16,7 +16,7 @@
 ## Project Structure
 ```
 vision_aid/
-├── init.py
+├── __init__.py
 ├── audio.py # TTS & audio queue
 ├── camera.py # Camera abstraction
 ├── config.py # CLI parser + logging (loads .env)
@@ -39,7 +39,7 @@ vision_aid/
 ### 1. Clone repo
 ```bash
 git clone https://github.com/Rajvardhan-Desai/vision_aid.git
-cd vision-aid
+cd vision_aid
 ```
 ### 2. Setup virtual environment
 ```bash
