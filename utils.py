@@ -1,7 +1,13 @@
 import time
-import cv2
 import logging
 from typing import Tuple
+
+import numpy as np
+
+try:  # Optional dependency
+    import cv2  # type: ignore
+except Exception:  # pragma: no cover - fallback when OpenCV not present
+    cv2 = None
 
 log = logging.getLogger("vision_aid")
 
@@ -35,13 +41,17 @@ def resize_with_ratio(img, size_wh):
     h, w = img.shape[:2]
     r = min(Wt / w, Ht / h)
     new_w, new_h = int(w * r), int(h * r)
-    resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    if cv2 is not None:
+        resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    else:  # simple nearest-neighbor fallback using NumPy
+        y_idx = (np.linspace(0, h - 1, new_h)).astype(int)
+        x_idx = (np.linspace(0, w - 1, new_w)).astype(int)
+        resized = img[y_idx[:, None], x_idx]
+
     canvas = resized
     if new_w != Wt or new_h != Ht:
-        canvas = (0 * img[0:Ht, 0:Wt]).copy()
-        canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY) if len(img.shape)==2 else canvas
-        canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR) if len(canvas.shape)==2 else canvas
-        # place resized in top-left (no center pad to keep math simple)
+        canvas = np.zeros((Ht, Wt) + img.shape[2:], dtype=img.dtype)
         canvas[0:new_h, 0:new_w] = resized
     fx, fy = r, r
     return canvas, (fx, fy), (0, 0), (w, h)
