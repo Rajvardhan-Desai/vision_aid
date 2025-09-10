@@ -9,7 +9,12 @@ from .audio import SpeechEngine, audio_thread_func, queue_audio_message
 from .camera import Camera
 from .utils import Throttle, parse_wh, resize_with_ratio, calculate_adaptive_inference_size
 from .threads import ThreadManager
-from .detection import Detector, process_currency_detections, update_object_history
+from .detection import (
+    Detector,
+    process_currency_detections,
+    update_object_history,
+    detect_with_mode,
+)
 from .gps_email import get_gps_location, send_email
 from .faces import FaceDB
 from .motor import VibrationController
@@ -24,6 +29,8 @@ FACE_RECOGNITION_INTERVAL = 5
 GRID_SIZE = 50
 REQUIRED_FRAMES = 3
 HARMFUL_OBJECTS = {"knife", "scissors", "fire", "gun"}
+CURRENCY_MODE_TIMEOUT = 60  # seconds
+
 
 def safe_setup_gpio() -> bool:
     try:
@@ -43,12 +50,14 @@ def safe_setup_gpio() -> bool:
         log.error("GPIO init failed: %s", e)
         return False
 
+
 def load_yolo_model(path: str):
     from ultralytics import YOLO
     if not os.path.exists(path):
         raise FileNotFoundError(path)
     log.info("Loading YOLO model: %s", path)
     return YOLO(path, task='detect')
+
 
 def run_single_image(model, image_path: str, thresh: float):
     from .detection import Detector
@@ -58,6 +67,7 @@ def run_single_image(model, image_path: str, thresh: float):
     det = Detector(model)
     dets = det.detect_all(img, conf_thres=thresh)
     return dets
+
 
 def distance_cm() -> float:
     try:
@@ -73,6 +83,7 @@ def distance_cm() -> float:
     except Exception:
         return -1.0
 
+
 def obstacle_priority(dist_cm: float) -> int:
     if dist_cm < 0: return 0
     if dist_cm < 40: return 4
@@ -80,12 +91,14 @@ def obstacle_priority(dist_cm: float) -> int:
     if dist_cm < 110: return 2
     return 1
 
+
 def motor_pattern_for_distance(vib: VibrationController, dist_cm: float, stop_evt):
     if dist_cm < 0: return
     if dist_cm < 40: vib.pattern_urgent(stop_evt)
     elif dist_cm < 70: vib.pattern_warning(stop_evt)
     elif dist_cm < 110: vib.pattern_gentle(stop_evt)
     # else do nothing
+
 
 def registration_flow(args) -> int:
     """
@@ -129,12 +142,14 @@ def registration_flow(args) -> int:
 
     return -1  # no registration-related action
 
+
 def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, shared):
     res = parse_wh(args.resolution)
     infer_wh = parse_wh(args.inference_size) if args.inference_size else (640, 640)
     cam = Camera(args.source, resolution=res if res != (0,0) else None)
     model = load_yolo_model(args.model)
     det = Detector(model)
+    currency_det = None
     faces = FaceDB() if args.face_recognition else None
     vib = VibrationController(MOTOR_PIN)
 
@@ -159,31 +174,61 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, s
         if infer_wh:
             view, (fx, fy), _, _ = resize_with_ratio(frame, infer_wh)
 
-        dets = det.detect_all(view, conf_thres=args.thresh)
-        stable = update_object_history(obj_history, dets, grid_size=GRID_SIZE, required_frames=REQUIRED_FRAMES)
-        shared.last_objects = [d["class_name"] for d in stable]
-        for d in stable:
-            if args.alert_all or d["class_name"] in HARMFUL_OBJECTS:
-                if speak_throttle.allow(d["class_name"]):
-                    queue_audio_message(audio_q, d["class_name"], d["class_name"], priority=1)
+        # Currency mode: load currency model lazily and run the correct detector
+        currency_active = time.time() < shared.currency_mode_until
+        if currency_active and currency_det is None:
+            try:
+                if not args.currency_model:
+                    raise FileNotFoundError("No currency model path provided")
+                currency_det = Detector(load_yolo_model(args.currency_model))
+            except Exception as e:
+                if log_throttle.allow("currency_load_fail"):
+                    log.error("Currency model load failed: %s", e)
+                shared.currency_mode_until = 0.0
+                currency_active = False
 
-        # Currency detections (collect all + optional NMS)
-        currency = process_currency_detections(
-            dets, class_whitelist=None, min_conf=max(0.6, args.thresh), use_nms=True
+        dets = detect_with_mode(
+            view,
+            det,
+            currency_det,
+            currency_active,
+            obj_thresh=args.thresh,
+            curr_thresh=max(0.85, args.thresh),
         )
-        if currency and speak_throttle.allow("currency"):
-            msg = ", ".join(f"{c['class_name']} {c['conf']:.0%}" for c in currency[:3])
-            queue_audio_message(audio_q, "currency", f"Currency: {msg}", priority=2)
 
-        # Faces (dynamic scaling already inside FaceDB)
-        if faces and frame_idx % FACE_RECOGNITION_INTERVAL == 0:
-            fr = faces.recognize(view, fx=fx, fy=fy)
-            # announce known ones with higher priority
-            known = [f for f in fr if f["name"] != "Unknown" and f["conf_like"] > 0.55]
-            names = sorted({f['name'] for f in known}) if known else []
-            shared.last_faces = names
-            if names and speak_throttle.allow("faces"):
-                queue_audio_message(audio_q, "faces", " ".join(names), priority=3, is_familiar_face=True)
+        if currency_active:
+            currency = process_currency_detections(
+                dets, class_whitelist=None, min_conf=max(0.85, args.thresh), use_nms=True
+            )
+            shared.last_objects = [c["class_name"] for c in currency]
+            if currency and speak_throttle.allow("currency"):
+                msg = ", ".join(f"{c['class_name']} {c['conf']:.0%}" for c in currency[:3])
+                queue_audio_message(audio_q, "currency", f"Currency: {msg}", priority=2)
+        else:
+            stable = update_object_history(
+                obj_history, dets, grid_size=GRID_SIZE, required_frames=REQUIRED_FRAMES
+            )
+            shared.last_objects = [d["class_name"] for d in stable]
+            for d in stable:
+                if args.alert_all or d["class_name"] in HARMFUL_OBJECTS:
+                    if speak_throttle.allow(d["class_name"]):
+                        queue_audio_message(audio_q, d["class_name"], d["class_name"], priority=1)
+
+            # Faces (dynamic scaling already inside FaceDB)
+            if faces and frame_idx % FACE_RECOGNITION_INTERVAL == 0:
+                fr = faces.recognize(view, fx=fx, fy=fy)
+                # announce known ones with higher priority
+                known = [f for f in fr if f["name"] != "Unknown" and f["conf_like"] > 0.55]
+                names = sorted({f['name'] for f in known}) if known else []
+                shared.last_faces = names
+                if names and speak_throttle.allow("faces"):
+                    queue_audio_message(
+                        audio_q,
+                        "faces",
+                        " ".join(names),
+                        priority=3,
+                        is_familiar_face=True,
+                    )
 
         # Distance + vibration + prioritized speech
         d = distance_cm()
@@ -219,14 +264,19 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, s
                 cv2.putText(frame, f"{d0['class_name']} {d0['conf']:.2f}", (x1, max(0,y1-6)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
             cv2.imshow("VisionAid", frame)
-            if cv2.waitKey(max(1, args.delay)) & 0xFF == ord('q'):
+            key = cv2.waitKey(max(1, args.delay)) & 0xFF
+            if key == ord('q'):
                 stop_evt.set()
+            elif key == ord('c'):
+                shared.currency_mode_until = time.time() + CURRENCY_MODE_TIMEOUT
+                queue_audio_message(audio_q, "vc_curr", "Currency mode", priority=2)
 
     # Cleanup
     try: cam.close()
     except Exception: pass
     try: cv2.destroyAllWindows()
     except Exception: pass
+
 
 def main():
     args, logger = parse_config()
@@ -260,6 +310,7 @@ def main():
         def __init__(self):
             self.last_faces = []
             self.last_objects = []
+            self.currency_mode_until = 0.0
 
     shared = SharedState()
 
@@ -314,6 +365,7 @@ def main():
         elif cmd == "save_face":
             queue_audio_message(audio_q, "vc_save", "Face saving not implemented", force=True)
         elif cmd == "currency":
+            shared.currency_mode_until = time.time() + CURRENCY_MODE_TIMEOUT
             queue_audio_message(audio_q, "vc_curr", "Currency mode", force=True)
         elif cmd == "stop":
             queue_audio_message(audio_q, "vc_stop", "Shutting down", priority=4, force=True)
@@ -364,6 +416,7 @@ def main():
             GPIO.cleanup()
         except Exception:
             pass
+
 
 if __name__ == "__main__":
     main()
