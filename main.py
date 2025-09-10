@@ -326,7 +326,7 @@ def main():
 
     # Audio (with graceful shutdown/drain)
     audio_q = PriorityMsgQueue()
-    speech = SpeechEngine(volume=args.audio_volume)
+    speech = SpeechEngine(volume=args.audio_volume, device=args.bluetooth_card)
     stop_evt = threading.Event()
     t_audio = threading.Thread(target=audio_thread_func, args=(stop_evt, audio_q, speech), daemon=True)
     t_audio.start()
