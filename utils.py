@@ -36,7 +36,7 @@ def resize_with_ratio(img, size_wh):
     r = min(Wt / w, Ht / h)
     new_w, new_h = int(w * r), int(h * r)
     resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-    canvas = img
+    canvas = resized
     if new_w != Wt or new_h != Ht:
         canvas = (0 * img[0:Ht, 0:Wt]).copy()
         canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY) if len(img.shape)==2 else canvas
