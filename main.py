@@ -5,7 +5,12 @@ import cv2
 from .config import parse_config
 from .gpio_shim import GPIO, is_simulated
 from .queues import PriorityMsgQueue
-from .audio import SpeechEngine, audio_thread_func, queue_audio_message
+from .audio import (
+    SpeechEngine,
+    audio_thread_func,
+    queue_audio_message,
+    set_audio_enabled,
+)
 from .camera import Camera
 from .utils import Throttle, parse_wh, resize_with_ratio, calculate_adaptive_inference_size
 from .threads import ThreadManager
