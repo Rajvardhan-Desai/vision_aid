@@ -47,4 +47,4 @@ def emergency_contact() -> str:
     return env_str("EMERGENCY_CONTACT", "")
 
 def currency_model() -> str:
-    return env_str("CURRENCY_MODEL", "best.onnx")
+    return env_str("CURRENCY_MODEL", "models/best.onnx")
