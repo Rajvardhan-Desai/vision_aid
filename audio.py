@@ -1,5 +1,6 @@
+import os
 import subprocess, threading, time, logging
-from typing import Dict
+from typing import Dict, Optional
 from .queues import PriorityMsgQueue, MAX_AUDIO_QUEUE_SIZE
 
 logger = logging.getLogger("vision_aid")
@@ -20,8 +21,9 @@ def is_audio_enabled() -> bool:
     return _audio_enabled
 
 class SpeechEngine:
-    def __init__(self, volume: int = 80):
+    def __init__(self, volume: int = 80, device: Optional[int] = None):
         self.volume = max(0, min(100, volume))
+        self.device = device
         self._procs = []
         self._timers: Dict[int, threading.Timer] = {}
         self._lock = threading.Lock()
@@ -47,9 +49,15 @@ class SpeechEngine:
                 logger.debug("Too many TTS processes; drop: %s", message)
                 return
             try:
+                env = None
+                if self.device is not None:
+                    env = os.environ.copy()
+                    env["PA_ALSA_OUTPUT_DEVICE"] = f"plughw:{self.device}"
                 p = subprocess.Popen(
                     ['espeak', '-a', str(self.volume), '-s', '150', message],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    env=env,
                 )
                 self._procs.append(p)
 
@@ -64,12 +72,15 @@ class SpeechEngine:
                 self._timers[id(p)] = timer
 
                 def waiter():
-                    p.wait()
+                    _, err = p.communicate()
                     with self._lock:
                         t = self._timers.pop(id(p), None)
                         if t:
                             try: t.cancel()
                             except Exception: pass
+                        if p.returncode:
+                            err_msg = err.decode(errors='ignore').strip() if err else str(p.returncode)
+                            logger.error("TTS process failed: %s", err_msg)
                 threading.Thread(target=waiter, daemon=True).start()
             except Exception as e:
                 logger.error("TTS error: %s", e)
