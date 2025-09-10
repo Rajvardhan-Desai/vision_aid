@@ -95,6 +95,9 @@ python -m vision_aid.main \
   --audio-device 5 \
   --enable-gps \
   --currency-model models/best.onnx
+
+```
+
 -  Press `q` in the preview window to quit.
 -  Use `--headless` for no preview (saves CPU).
 -  Paths like `models/...` are relative to your current working directory;
@@ -173,4 +176,5 @@ After installing the dependencies, you can run the unit tests with:
 ```bash
 pytest
 ```
+
 
