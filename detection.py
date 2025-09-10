@@ -74,3 +74,34 @@ def process_currency_detections(dets: List[Dict[str, Any]],
     if use_nms:
         cand = nms_per_class(cand, iou_thres=nms_iou)
     return cand
+
+
+def update_object_history(
+    history: Dict[Any, int],
+    dets: List[Dict[str, Any]],
+    grid_size: int = 50,
+    required_frames: int = 3,
+) -> List[Dict[str, Any]]:
+    """Track objects across frames using a simple spatial grid.
+
+    Each detection is placed into a grid cell based on its centre coordinates.
+    When an object appears in the same cell for ``required_frames`` consecutive
+    frames it is considered stable and included in the returned list. Entries
+    that disappear are gradually aged out of ``history``.
+    """
+    current = set()
+    stable: List[Dict[str, Any]] = []
+    for d in dets:
+        x1, y1, x2, y2 = d.get("bbox_xyxy", [0, 0, 0, 0])
+        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+        cell = (int(cx // grid_size), int(cy // grid_size), d.get("class_name"))
+        current.add(cell)
+        history[cell] = history.get(cell, 0) + 1
+        if history[cell] >= required_frames:
+            stable.append(d)
+    for key in list(history.keys()):
+        if key not in current:
+            history[key] -= 1
+            if history[key] <= 0:
+                del history[key]
+    return stable

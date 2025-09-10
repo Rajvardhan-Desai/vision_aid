@@ -65,3 +65,27 @@ def scale_bbox_to_original(xyxy, fx, fy, pad=(0,0)):
         int((x2 - px) / fx),
         int((y2 - py) / fy),
     ]
+
+
+def calculate_adaptive_inference_size(
+    avg_fps: float,
+    current_size: Tuple[int, int],
+    target_fps: float = 12.0,
+    step: int = 64,
+    min_size: Tuple[int, int] = (256, 256),
+    max_size: Tuple[int, int] = (640, 640),
+) -> Tuple[int, int]:
+    """Adapt inference resolution based on recent FPS.
+
+    Decrease the inference size when FPS falls well below the target and
+    increase it when FPS exceeds the target. This simple heuristic helps the
+    Raspberry Pi 4 maintain a usable frame rate without manual tuning.
+    """
+    w, h = current_size
+    if avg_fps < target_fps * 0.8:
+        w = max(min_size[0], w - step)
+        h = max(min_size[1], h - step)
+    elif avg_fps > target_fps * 1.2:
+        w = min(max_size[0], w + step)
+        h = min(max_size[1], h + step)
+    return w, h
