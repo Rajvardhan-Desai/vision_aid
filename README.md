@@ -1,4 +1,4 @@
-﻿# VisionAid: A Multimodal Edge-Device System for Enhancing Environmental Awareness in Visually Impaired Individuals
+# VisionAid: A Multimodal Edge-Device System for Enhancing Environmental Awareness in Visually Impaired Individuals
 
  ## Features
 
@@ -25,6 +25,7 @@ vision_aid/
 ├── gpio_shim.py # Safe GPIO with simulator
 ├── gps_email.py # GPS stub + email sender
 ├── main.py # Entry point (live + image modes)
+├── models/ # Pre-trained models (best.onnx, smodel, yolo11n_ncnn_model)
 ├── motor.py # Vibration patterns
 ├── queues.py # Priority audio queue
 ├── settings.py # Central .env loader & helpers
@@ -66,7 +67,7 @@ SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 
 # Models
-CURRENCY_MODEL=best.onnx
+CURRENCY_MODEL=models/best.onnx
 ```
 --- 
 
@@ -82,14 +83,14 @@ python -m vision_aid.main \
 ### Live camera mode
 ```bash
 python -m vision_aid.main \
-  --model yolo11n_ncnn_model \
+  --model models/yolo11n_ncnn_model \
   --source picamera0 \
   --resolution 640x480 \
   --voice-commands \
-  --vosk-model smodel \
+  --vosk-model models/smodel \
   --audio-device 5 \
   --enable-gps \
-  --currency-model best.onnx
+  --currency-model models/best.onnx
 ```
 -  Press `q` in the preview window to quit.
 -  Use `--headless` for no preview (saves CPU).
@@ -157,6 +158,13 @@ Obstacle proximity → vibration urgency:
 - If available, sends periodic email with current location using .env credentials.
 - All email credentials are read securely from .env, never exposed on CLI.
 
+---
 
+## Testing
 
+After installing the dependencies, you can run the unit tests with:
+
+```bash
+pytest
+```
 
