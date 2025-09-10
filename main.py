@@ -31,6 +31,7 @@ REQUIRED_FRAMES = 3
 HARMFUL_OBJECTS = {"knife", "scissors", "fire", "gun"}
 CURRENCY_MODE_TIMEOUT = 60  # seconds
 
+
 def safe_setup_gpio() -> bool:
     try:
         for pin in (TRIG_PIN, ECHO_PIN, MOTOR_PIN):
@@ -49,12 +50,14 @@ def safe_setup_gpio() -> bool:
         log.error("GPIO init failed: %s", e)
         return False
 
+
 def load_yolo_model(path: str):
     from ultralytics import YOLO
     if not os.path.exists(path):
         raise FileNotFoundError(path)
     log.info("Loading YOLO model: %s", path)
     return YOLO(path, task='detect')
+
 
 def run_single_image(model, image_path: str, thresh: float):
     from .detection import Detector
@@ -64,6 +67,7 @@ def run_single_image(model, image_path: str, thresh: float):
     det = Detector(model)
     dets = det.detect_all(img, conf_thres=thresh)
     return dets
+
 
 def distance_cm() -> float:
     try:
@@ -79,6 +83,7 @@ def distance_cm() -> float:
     except Exception:
         return -1.0
 
+
 def obstacle_priority(dist_cm: float) -> int:
     if dist_cm < 0: return 0
     if dist_cm < 40: return 4
@@ -86,12 +91,14 @@ def obstacle_priority(dist_cm: float) -> int:
     if dist_cm < 110: return 2
     return 1
 
+
 def motor_pattern_for_distance(vib: VibrationController, dist_cm: float, stop_evt):
     if dist_cm < 0: return
     if dist_cm < 40: vib.pattern_urgent(stop_evt)
     elif dist_cm < 70: vib.pattern_warning(stop_evt)
     elif dist_cm < 110: vib.pattern_gentle(stop_evt)
     # else do nothing
+
 
 def registration_flow(args) -> int:
     """
@@ -135,6 +142,7 @@ def registration_flow(args) -> int:
 
     return -1  # no registration-related action
 
+
 def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, shared):
     res = parse_wh(args.resolution)
     infer_wh = parse_wh(args.inference_size) if args.inference_size else (640, 640)
@@ -166,6 +174,7 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, s
         if infer_wh:
             view, (fx, fy), _, _ = resize_with_ratio(frame, infer_wh)
 
+        # Currency mode: load currency model lazily and run the correct detector
         currency_active = time.time() < shared.currency_mode_until
         if currency_active and currency_det is None:
             try:
@@ -267,6 +276,7 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, s
     except Exception: pass
     try: cv2.destroyAllWindows()
     except Exception: pass
+
 
 def main():
     args, logger = parse_config()
@@ -406,6 +416,7 @@ def main():
             GPIO.cleanup()
         except Exception:
             pass
+
 
 if __name__ == "__main__":
     main()
