@@ -48,7 +48,7 @@ class SpeechEngine:
                 return
             try:
                 p = subprocess.Popen(
-                    ['espeak', '-a', str(self.volume), '-s', '150', f'"{message}"'],
+                    ['espeak', '-a', str(self.volume), '-s', '150', message],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 )
                 self._procs.append(p)

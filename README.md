@@ -5,7 +5,7 @@
 - **Object Detection (YOLOv11n)** – detects common objects in live camera or still images.
 - **Currency Detection** – collects *all* high-confidence bills per frame (with optional NMS).
 - **Face Recognition** – register/list known faces (persistent JSON DB), dynamic scaling for any resolution.
-- **Audio Feedback** – text-to-speech via `espeak` (or `gTTS`), priority queue, cooldowns, graceful shutdown/drain.
+- **Audio Feedback** – text-to-speech via `espeak`, priority queue, cooldowns, graceful shutdown/drain.
 - **Vibration Feedback** – urgency patterns based on obstacle distance (`HC-SR04` style).
 - **GPS + Email Alerts** – stubbed GPS reader, email alerts using `.env` credentials.
 - **Cross-platform GPIO** – safe Raspberry Pi GPIO with simulation fallback.
@@ -126,7 +126,7 @@ python -m vision_aid.main \
 ---
 
 ## Audio System
-- Uses `espeak` (system binary) or `gTTS` as fallback.
+- Uses `espeak` (system binary) for text-to-speech.
 - Priority queue ensures urgent alerts (e.g., obstacles) are spoken before routine detections.
 - Cooldowns avoid spamming (3s default, 10s for familiar faces).
 - On shutdown, audio thread drains queue before exit.

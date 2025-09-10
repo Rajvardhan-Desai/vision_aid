@@ -16,7 +16,6 @@ dlib==19.24.8
 sounddevice==0.5.1
 vosk==0.3.45
 PyAudio==0.2.13
-gTTS==2.5.4   # optional, if you want TTS alternative to espeak
 
 # GPIO / Pi
 RPi.GPIO==0.7.1a4
