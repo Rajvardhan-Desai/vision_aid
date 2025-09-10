@@ -103,6 +103,8 @@ python -m vision_aid.main \
 -  Paths like `models/...` are relative to your current working directory;
    if you run the command from elsewhere, provide absolute paths, e.g.
    `--vosk-model /path/to/vision_aid/models/smodel`.
+-  Resolution strings must use the format `WIDTHxHEIGHT` (e.g., `640x480`).
+   Invalid strings will now raise a clear `ValueError`.
 
 ---
 
