@@ -33,6 +33,10 @@ vision_aid/
 ├── threads.py # Stoppable thread manager
 └── utils.py # Helpers (resize, throttles, bbox scale)
 ```
+
+The `resize_with_ratio` helper now safely returns the original image when a
+target dimension is zero or negative, preventing runtime errors from invalid
+resize requests.
 ---
 
 ## Installation

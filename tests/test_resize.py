@@ -25,3 +25,12 @@ def test_resize_with_ratio_with_padding():
     assert (fx, fy) == (0.6, 0.6)
     assert original_size == (100, 50)
 
+
+def test_resize_with_ratio_invalid_size():
+    img = np.ones((50, 100, 3), dtype=np.uint8) * 255
+    canvas, (fx, fy), pad, original_size = resize_with_ratio(img, (0, 40))
+    assert canvas.shape == img.shape
+    assert (fx, fy) == (1.0, 1.0)
+    assert pad == (0, 0)
+    assert original_size == (100, 50)
+

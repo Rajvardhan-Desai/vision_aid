@@ -32,8 +32,14 @@ def parse_wh(wh: str) -> Tuple[int,int]:
     return int(w), int(h)
 
 def resize_with_ratio(img, size_wh):
-    """Resize keeping aspect (letterbox), returning resized image and scaling ratios."""
-    if not size_wh or size_wh == (0,0):  # no-op
+    """Resize keeping aspect (letterbox), returning resized image and scaling ratios.
+
+    If either target dimension is zero or negative the function returns the
+    original image unchanged. This guards against invalid configurations that
+    would otherwise trigger errors in OpenCV or NumPy when attempting to
+    resize to a zero-sized canvas.
+    """
+    if not size_wh or size_wh[0] <= 0 or size_wh[1] <= 0:  # no-op
         h, w = img.shape[:2]
         return img, (1.0, 1.0), (0, 0), (w, h)
 
