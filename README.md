@@ -25,7 +25,7 @@ vision_aid/
 ├── gpio_shim.py # Safe GPIO with simulator
 ├── gps_email.py # GPS stub + email sender
 ├── main.py # Entry point (live + image modes)
-├── models/ # Pre-trained models (best.onnx, smodel, yolo11n_ncnn_model)
+├── models/ # Pre-trained models (best.onnx, smodel [Vosk], yolo11n_ncnn_model)
 ├── motor.py # Vibration patterns
 ├── queues.py # Priority audio queue
 ├── settings.py # Central .env loader & helpers
@@ -91,9 +91,11 @@ python -m vision_aid.main \
   --audio-device 5 \
   --enable-gps \
   --currency-model models/best.onnx
-```
 -  Press `q` in the preview window to quit.
 -  Use `--headless` for no preview (saves CPU).
+-  Paths like `models/...` are relative to your current working directory;
+   if you run the command from elsewhere, provide absolute paths, e.g.
+   `--vosk-model /path/to/vision_aid/models/smodel`.
 
 ---
 
