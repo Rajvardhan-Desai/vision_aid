@@ -1,30 +1,32 @@
 import threading
 import logging
-import time
 from typing import Callable, List
 
 log = logging.getLogger("vision_aid")
 
+
 class StoppableThread(threading.Thread):
-    def __init__(self, target: Callable, name: str, args=(), kwargs=None, daemon=True):
-        super().__init__(target=self._run_wrapper, name=name, daemon=daemon)
-        self._target = target
-        self._args = args
-        self._kwargs = kwargs or {}
-        self._stop = threading.Event()
+    """Thread wrapper that injects a stop event as the first arg."""
+
+    def __init__(self, target: Callable, name: str, args=(), kwargs=None, daemon: bool = True):
+        self._target_fn = target
+        self._target_args = args
+        self._target_kwargs = kwargs or {}
+        self._stop_evt = threading.Event()
         self._started_evt = threading.Event()
+        super().__init__(target=self._run_wrapper, name=name, daemon=daemon)
 
     def _run_wrapper(self):
         self._started_evt.set()
         try:
-            self._target(self._stop, *self._args, **self._kwargs)
+            self._target_fn(self._stop_evt, *self._target_args, **self._target_kwargs)
         except Exception as e:
             log.exception("Thread %s crashed: %s", self.name, e)
 
     def stop(self):
-        self._stop.set()
+        self._stop_evt.set()
 
-    def started(self, timeout=2.0) -> bool:
+    def started(self, timeout: float = 2.0) -> bool:
         return self._started_evt.wait(timeout=timeout)
 
 
@@ -42,10 +44,12 @@ class ThreadManager:
 
     def stop_all(self):
         for t in self._threads:
-            try: t.stop()
-            except Exception: pass
+            try:
+                t.stop()
+            except Exception:
+                pass
 
-    def join_all(self, timeout_per=3.0):
+    def join_all(self, timeout_per: float = 3.0):
         for t in self._threads:
             try:
                 t.join(timeout=timeout_per)
