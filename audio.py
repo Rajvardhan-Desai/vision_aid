@@ -8,6 +8,17 @@ AUDIO_COOLDOWN = 3.0
 FAMILIAR_FACE_COOLDOWN = 10.0
 MAX_CONCURRENT_SPEECH = 3
 
+_audio_enabled = True
+
+
+def set_audio_enabled(enabled: bool) -> None:
+    global _audio_enabled
+    _audio_enabled = bool(enabled)
+
+
+def is_audio_enabled() -> bool:
+    return _audio_enabled
+
 class SpeechEngine:
     def __init__(self, volume: int = 80):
         self.volume = max(0, min(100, volume))
@@ -65,15 +76,19 @@ class SpeechEngine:
 
 _last_audio_time: Dict[str, float] = {}
 
+
 def queue_audio_message(q: PriorityMsgQueue, class_key, message: str,
-                        priority: int = 1, is_familiar_face: bool = False) -> bool:
+                        priority: int = 1, is_familiar_face: bool = False,
+                        force: bool = False) -> bool:
     import time
     global _last_audio_time
+    if not force and not is_audio_enabled():
+        return False
     now = time.time()
     msg_id = f"face_{class_key}" if is_familiar_face else str(class_key)
     cooldown = FAMILIAR_FACE_COOLDOWN if is_familiar_face else AUDIO_COOLDOWN
     last = _last_audio_time.get(msg_id, 0)
-    if now - last < cooldown:
+    if now - last < cooldown and not force:
         return False
     if q.qsize() >= MAX_AUDIO_QUEUE_SIZE and priority < 2 and not is_familiar_face:
         return False

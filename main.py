@@ -123,7 +123,7 @@ def registration_flow(args) -> int:
 
     return -1  # no registration-related action
 
-def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine):
+def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, shared):
     res = parse_wh(args.resolution)
     infer_wh = parse_wh(args.inference_size) if args.inference_size else None
 
@@ -152,6 +152,7 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine):
             view, (fx, fy), _, _ = resize_with_ratio(frame, infer_wh)
 
         dets = det.detect_all(view, conf_thres=args.thresh)
+        shared.last_objects = [d["class_name"] for d in dets]
 
         # Currency detections (collect all + optional NMS)
         currency = process_currency_detections(
@@ -166,8 +167,9 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine):
             fr = faces.recognize(view, fx=fx, fy=fy)
             # announce known ones with higher priority
             known = [f for f in fr if f["name"] != "Unknown" and f["conf_like"] > 0.55]
-            if known:
-                names = sorted({f['name'] for f in known})
+            names = sorted({f['name'] for f in known}) if known else []
+            shared.last_faces = names
+            if names:
                 queue_audio_message(audio_q, "faces", " ".join(names), priority=3, is_familiar_face=True)
 
         # Distance + vibration + prioritized speech
@@ -228,6 +230,18 @@ def main():
     if not safe_setup_gpio():
         sys.exit(1)
 
+    class SharedState:
+        def __init__(self):
+            self.last_faces = []
+            self.last_objects = []
+
+    shared = SharedState()
+
+    VOICE_COMMANDS = [
+        "help", "mute", "speak", "all", "less", "faces",
+        "scan", "distance", "save face", "stop", "currency", "emergency",
+    ]
+
     # Audio (with graceful shutdown/drain)
     audio_q = PriorityMsgQueue()
     speech = SpeechEngine(volume=args.audio_volume)
@@ -238,7 +252,59 @@ def main():
     # Thread orchestration
     from .threads import ThreadManager
     tm = ThreadManager()
-    tm.spawn("live", live_loop, args, audio_q, speech)
+    tm.spawn("live", live_loop, args, audio_q, speech, shared)
+
+    main_stop = threading.Event()
+
+    def handle_voice_command(cmd: str):
+        logger.info("Voice command: %s", cmd)
+        if cmd == "help":
+            cmds = ", ".join(VOICE_COMMANDS)
+            queue_audio_message(audio_q, "vc_help", f"Commands: {cmds}", force=True)
+        elif cmd == "mute":
+            set_audio_enabled(False)
+            queue_audio_message(audio_q, "vc_mute", "Muted", force=True)
+        elif cmd == "speak":
+            set_audio_enabled(True)
+            queue_audio_message(audio_q, "vc_speak", "Audio on", force=True)
+        elif cmd == "all":
+            args.alert_all = True
+            queue_audio_message(audio_q, "vc_all", "Announcing all objects", force=True)
+        elif cmd == "less":
+            args.alert_all = False
+            queue_audio_message(audio_q, "vc_less", "Announcing fewer objects", force=True)
+        elif cmd == "faces":
+            names = shared.last_faces
+            msg = "No faces" if not names else ", ".join(names)
+            queue_audio_message(audio_q, "vc_faces", msg, force=True)
+        elif cmd == "scan":
+            objs = shared.last_objects
+            msg = "No objects" if not objs else ", ".join(objs[:5])
+            queue_audio_message(audio_q, "vc_scan", msg, force=True)
+        elif cmd == "distance":
+            d = distance_cm()
+            if d >= 0:
+                queue_audio_message(audio_q, "vc_distance", f"{int(d)} centimeters", force=True)
+        elif cmd == "save_face":
+            queue_audio_message(audio_q, "vc_save", "Face saving not implemented", force=True)
+        elif cmd == "currency":
+            queue_audio_message(audio_q, "vc_curr", "Currency mode", force=True)
+        elif cmd == "stop":
+            queue_audio_message(audio_q, "vc_stop", "Shutting down", priority=4, force=True)
+            main_stop.set()
+        elif cmd == "emergency":
+            queue_audio_message(audio_q, "vc_emerg", "Emergency triggered", priority=4, force=True)
+            try:
+                loc = get_gps_location()
+                msg = f"Location: {loc[0]}, {loc[1]}" if loc else "Location unknown"
+                send_email("VisionAid Emergency", msg)
+            except Exception as e:
+                logger.error("Emergency email failed: %s", e)
+
+    if args.voice_commands:
+        from .voice import voice_command_loop
+        from .audio import set_audio_enabled
+        tm.spawn("voice", voice_command_loop, args, audio_q, handle_voice_command)
 
     # Optional GPS/email thread (still stubbed)
     def gps_mail_loop(stop_evt):
@@ -251,7 +317,7 @@ def main():
     tm.spawn("gps_mail", gps_mail_loop)
 
     try:
-        while True:
+        while not main_stop.is_set():
             time.sleep(0.3)
     except KeyboardInterrupt:
         logger.info("Shutdown requested by user.")

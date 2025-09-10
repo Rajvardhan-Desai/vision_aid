@@ -123,6 +123,21 @@ python -m vision_aid.main \
 - Priority queue ensures urgent alerts (e.g., obstacles) are spoken before routine detections.
 - Cooldowns avoid spamming (3s default, 10s for familiar faces).
 - On shutdown, audio thread drains queue before exit.
+
+## Voice Commands
+- Continuous microphone capture via `sounddevice` streamed into the `Vosk` speech recognizer.
+- Wake word **"assistant"** activates the command listener.
+- Supported commands:
+  - `help` – list commands
+  - `mute` / `speak` – toggle audio announcements
+  - `all` / `less` – adjust object announcement verbosity
+  - `faces` – report recognized people
+  - `scan` – list recently detected objects
+  - `distance` – report current range measurement
+  - `save face` – begin face registration
+  - `stop` – shut down the system (requires confirmation)
+  - `currency` – enter currency detection mode
+  - `emergency` – send an alert email (requires confirmation)
 ---
 
 ## Vibration Motor
