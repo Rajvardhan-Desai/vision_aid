@@ -26,9 +26,24 @@ class Throttle:
         return False
 
 
-def parse_wh(wh: str) -> Tuple[int,int]:
-    if not wh: return (0, 0)
-    w, h = wh.lower().split('x')
+def parse_wh(wh: str) -> Tuple[int, int]:
+    """Parse a WIDTHxHEIGHT string into a tuple of integers.
+
+    The previous implementation relied on ``str.split`` which raised a
+    generic ``ValueError`` for malformed inputs such as ``"640*480"`` or a
+    missing dimension.  This bubbled up as an opaque error message to CLI
+    users.  We now validate the format explicitly and provide a clearer
+    exception, while still returning ``(0, 0)`` for empty strings.
+    """
+    if not wh:
+        return (0, 0)
+
+    import re
+
+    match = re.fullmatch(r"\s*(\d+)\s*[xX]\s*(\d+)\s*", wh)
+    if not match:
+        raise ValueError(f"Invalid resolution '{wh}', expected format WxH")
+    w, h = match.groups()
     return int(w), int(h)
 
 def resize_with_ratio(img, size_wh):
