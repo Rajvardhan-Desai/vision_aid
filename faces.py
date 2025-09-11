@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any
+from typing import List
 import numpy as np
 from .storage import FaceStore
 
