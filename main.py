@@ -1,5 +1,11 @@
-import os, sys, time, logging, threading, collections
-from typing import Dict, Any
+import collections
+import logging
+import os
+import sys
+import threading
+import time
+from typing import Any
+
 import cv2
 
 from .config import parse_config
@@ -164,7 +170,7 @@ def live_loop(stop_evt, args, audio_q: PriorityMsgQueue, speech: SpeechEngine, s
     # distance smoothing (median over last N)
     window = collections.deque(maxlen=7)
     fps_window = collections.deque(maxlen=5)
-    obj_history: Dict[Any, int] = {}
+    obj_history: dict[Any, int] = {}
     frame_idx = 0
 
     while not stop_evt.is_set():
@@ -332,7 +338,6 @@ def main():
     t_audio.start()
 
     # Thread orchestration
-    from .threads import ThreadManager
     tm = ThreadManager()
     tm.spawn("live", live_loop, args, audio_q, speech, shared)
 
@@ -386,7 +391,6 @@ def main():
 
     if args.voice_commands:
         from .voice import voice_command_loop
-        from .audio import set_audio_enabled
         tm.spawn("voice", voice_command_loop, args, audio_q, handle_voice_command)
 
     # Optional GPS/email thread (still stubbed)

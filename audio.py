@@ -92,7 +92,6 @@ def queue_audio_message(q: PriorityMsgQueue, class_key, message: str,
                         priority: int = 1, is_familiar_face: bool = False,
                         force: bool = False) -> bool:
     import time
-    global _last_audio_time
     if not force and not is_audio_enabled():
         return False
     now = time.time()
