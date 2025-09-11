@@ -11,6 +11,20 @@
 - **Cross-platform GPIO** – safe Raspberry Pi GPIO with simulation fallback.
 - **Configurable** – all options via CLI flags *and/or* `.env` file.
 
+## Hardware Used
+
+- Raspberry Pi 4 Model B (2 GB RAM)
+- OV5647 5MP 1080P IR-Cut Camera for Raspberry Pi 3/4 with Automatic Day Night Mode
+- NEO-6M GPS Module with EPROM
+- DC Vibration Motor Module - Black
+
+## Software Used
+
+- Python 3.x with dependencies in `requirements.txt`
+- YOLOv11n object detection model
+- Vosk speech recognition model
+- espeak for text-to-speech
+
 ---
 
 ## Project Structure
