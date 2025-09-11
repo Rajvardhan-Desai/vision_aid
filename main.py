@@ -332,7 +332,6 @@ def main():
     t_audio.start()
 
     # Thread orchestration
-    from .threads import ThreadManager
     tm = ThreadManager()
     tm.spawn("live", live_loop, args, audio_q, speech, shared)
 
@@ -386,7 +385,6 @@ def main():
 
     if args.voice_commands:
         from .voice import voice_command_loop
-        from .audio import set_audio_enabled
         tm.spawn("voice", voice_command_loop, args, audio_q, handle_voice_command)
 
     # Optional GPS/email thread (still stubbed)
